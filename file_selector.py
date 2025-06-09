@@ -19,24 +19,33 @@ def get_file():
 
     return  file_path, file_name
 
-def compare_summaries(summary_document, old_output_sentences):
-    # Tiền xử lý câu: tách, chuẩn hóa
-    summary_sentences = summary_document.split('. ')
-    summary_sentences = [s.strip().lower() for s in summary_sentences if s.strip()]
-    old_output_set = set([s.strip().lower() for s in old_output_sentences if s.strip()])
+import re
+import string
 
-    # So sánh
+def preprocess_sentence(sentence):
+    # Loại bỏ dấu câu, chuyển về chữ thường, và strip
+    sentence = sentence.lower().strip()
+    sentence = sentence.translate(str.maketrans('', '', string.punctuation))
+    return sentence
+
+def compare_summaries(summary_document, old_output_sentences):
+    # Tách câu bằng regex để chính xác hơn
+    summary_sentences = re.split(r'\.\s*', summary_document)
+    summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
+
+    old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
+    old_output_set = set(old_output_sentences)
+
+    # So sánh câu
     matched_sentences = [s for s in summary_sentences if s in old_output_set]
     match_count = len(matched_sentences)
 
-
-    # Hiển thị kết quả
     if match_count > 0:
-        matched_text = '\n\n'.join(matched_sentences)
+        matched_text = '\n'.join(matched_sentences)
     else:
         matched_text = ''
-    return match_count, matched_text
 
+    return match_count, matched_text
 
 
 def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentences, match_count, precision, recall):
@@ -86,3 +95,4 @@ def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentenc
         ws.column_dimensions[column].width = max_length + 2
 
     wb.save(log_file)
+

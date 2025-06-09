@@ -1,9 +1,9 @@
+import string
 import tkinter as tk
-from tkinter import filedialog, messagebox
-import math
-from collections import defaultdict
-import re
-import numpy as np
+from tkinter import ttk, messagebox
+import os
+from datetime import datetime
+# Import các hàm bạn có sẵn từ các file module của bạn
 from summarizer_utils import (
     compute_tfidf_vectors,
     compute_cosine_similarity,
@@ -12,15 +12,15 @@ from summarizer_utils import (
     get_sentences
 )
 
-from file_selector import (get_file, compare_summaries,log_summary_to_excel)
-from metrics import (compute_precision, compute_recall)
+from file_selector import get_file, compare_summaries, log_summary_to_excel
+from metrics import compute_precision, compute_recall
 
 file_name = ""
 
 def select_file():
     global file_name
 
-    # Clear old data display on textview
+    # Xóa dữ liệu cũ trong Text
     text_output.delete(1.0, tk.END)
     text_old_output.delete(1.0, tk.END)
 
@@ -32,12 +32,15 @@ def select_file():
         threshold = 0.1
 
     try:
-        _num_sentence = int(text_num_sentence.get("1.0", tk.END).strip())
+        _num_sentence = int(entry_num_sentence.get().strip())
     except ValueError:
         messagebox.showerror("Lỗi", "Giá trị số câu sau rút gọn không hợp lệ.")
         return
 
     file_path, file_name = get_file()
+    if not file_path:
+        return  # Người dùng hủy chọn file
+
     sentences = get_sentences(file_path)
 
     count_sentence = len(sentences)
@@ -69,14 +72,7 @@ def select_file():
     summary_document = ' '.join([sentences[i] for i in top_sentence_indices])
     old_output_text = ' '.join(old_output_sentences)
 
-    # Hiển thị kết quả tóm tắt và chuẩn bất kể match có hay không
-    text_output.delete(1.0, tk.END)
-    text_output.insert(tk.END, summary_document)
-
-    text_old_output.delete(1.0, tk.END)
-    text_old_output.insert(tk.END, old_output_text)
-
-    # So sánh các câu giống nhau (nếu có)
+    # So sánh các câu giống nhau
     match_count, matched_text = compare_summaries(summary_document, old_output_sentences)
 
     label_match_count.config(text=f"Số câu khớp: {match_count}/{_num_sentence}")
@@ -85,7 +81,7 @@ def select_file():
     label_precision.config(text=f"Precision: {precision:.5f}")
 
     recall = compute_recall(match_count, num_old_output_sentences)
-    label_recall.config(text=f"recall: {recall:.5f}")
+    label_recall.config(text=f"Recall: {recall:.5f}")
 
     log_summary_to_excel(
         file_name=file_name,
@@ -96,7 +92,6 @@ def select_file():
         recall=recall
     )
 
-
     text_matched_sentences.config(state='normal')
     text_matched_sentences.delete(1.0, tk.END)
     if match_count > 0:
@@ -105,69 +100,100 @@ def select_file():
         text_matched_sentences.insert(tk.END, "(Không có câu nào khớp)")
     text_matched_sentences.config(state='disabled')
 
+    # Hiển thị kết quả tóm tắt và chuẩn
+    text_output.delete(1.0, tk.END)
+    text_output.insert(tk.END, summary_document)
+    text_old_output.delete(1.0, tk.END)
+    text_old_output.insert(tk.END, old_output_text)
 
-# UI setup
 root = tk.Tk()
 root.title("XML Text Summarizer")
 root.state('zoomed')  # Windows
 
-frame_top = tk.Frame(root)
-frame_top.pack(pady=20)
+# Style và theme
+style = ttk.Style(root)
+style.theme_use('clam')
 
-label_num = tk.Label(frame_top, text="Số câu sau rút gọn", font=("Arial", 12))
-label_num.pack(side=tk.LEFT)
+# ===== Top Frame: nhập tham số =====
+frame_top = ttk.Frame(root, padding=15)
+frame_top.grid(row=0, column=0, sticky="ew")
 
-text_num_sentence = tk.Text(frame_top, width=5, height=2, font=("Arial", 10))
-text_num_sentence.insert("1.0", "10")
-text_num_sentence.pack(side=tk.LEFT, padx=10)
+# Số câu sau rút gọn (dùng Entry thay Text cho gọn)
+label_num = ttk.Label(frame_top, text="Số câu sau rút gọn:", font=("Segoe UI", 11))
+label_num.grid(row=0, column=0, sticky="w")
 
-label_threshold = tk.Label(frame_top, text="Ngưỡng threshold (0-1):", font=("Arial", 12))
-label_threshold.pack(side=tk.LEFT, padx=(20, 0))
+entry_num_sentence = ttk.Entry(frame_top, width=5, font=("Segoe UI", 11))
+entry_num_sentence.insert(0, "10")
+entry_num_sentence.grid(row=0, column=1, padx=(5, 25))
 
-entry_threshold = tk.Entry(frame_top, width=6, font=("Arial", 12))
+# Ngưỡng threshold
+label_threshold = ttk.Label(frame_top, text="Ngưỡng threshold (0-1):", font=("Segoe UI", 11))
+label_threshold.grid(row=0, column=2, sticky="w")
+
+entry_threshold = ttk.Entry(frame_top, width=6, font=("Segoe UI", 11))
 entry_threshold.insert(0, "0.1")
-entry_threshold.pack(side=tk.LEFT, padx=10)
+entry_threshold.grid(row=0, column=3, padx=(5, 25))
 
-btn_select = tk.Button(frame_top, text="Chọn file XML", command=select_file, font=("Arial", 12), padx=10, pady=5)
-btn_select.pack(side=tk.LEFT)
+# Button chọn file
+btn_select = ttk.Button(frame_top, text="Chọn file XML", command=select_file)
+btn_select.grid(row=0, column=4)
 
-# Frame hiển thị kết quả so khớp
-# Frame hiển thị kết quả so khớp
-frame_match = tk.Frame(root)
-frame_match.pack(fill="x", padx=10, pady=5)
+# Cho frame_top co giãn ngang
+frame_top.columnconfigure(4, weight=1)
 
-# Frame nhỏ để chứa 2 label trên cùng 1 hàng
-frame_labels = tk.Frame(frame_match)
-frame_labels.pack(fill="x")
+# ===== Frame match info =====
+frame_match = ttk.LabelFrame(root, text="Kết quả so khớp", padding=10)
+frame_match.grid(row=1, column=0, sticky="ew", padx=15, pady=(5,10))
 
-label_match_count = tk.Label(frame_labels, text="Số câu khớp: 0", font=("Arial", 11, "bold"))
-label_match_count.pack(side=tk.LEFT, padx=(0, 20))
+label_match_count = ttk.Label(frame_match, text="Số câu khớp: 0", font=("Segoe UI", 10, "bold"))
+label_match_count.grid(row=0, column=0, sticky="w", padx=(0, 20))
 
-label_precision = tk.Label(frame_labels, text="Precision: 0.00", font=("Arial", 11, "bold"))
-label_precision.pack(side=tk.LEFT)
+label_precision = ttk.Label(frame_match, text="Precision: 0.00", font=("Segoe UI", 10, "bold"))
+label_precision.grid(row=0, column=1, sticky="w", padx=(0, 20))
 
-label_recall = tk.Label(frame_labels, text="Recall: 0.00", font=("Arial", 11, "bold"))
-label_recall.pack(side=tk.LEFT, padx=(20, 0))
+label_recall = ttk.Label(frame_match, text="Recall: 0.00", font=("Segoe UI", 10, "bold"))
+label_recall.grid(row=0, column=2, sticky="w")
 
-# Text nằm dòng dưới 2 label
-text_matched_sentences = tk.Text(frame_match, height=5, font=("Arial", 10), bg="#eef5f9", state='disabled', wrap="word")
-text_matched_sentences.pack(fill="x", pady=(5,0))
+# Text matched sentences (disabled)
+text_matched_sentences = tk.Text(frame_match, height=5, font=("Segoe UI", 10), bg="#eef5f9", state='disabled', wrap="word")
+text_matched_sentences.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 0))
 
-# Frame chứa hai ô Text
-frame_bottom = tk.Frame(root)
-frame_bottom.pack(expand=True, fill="both", padx=10, pady=10)
+frame_match.columnconfigure(2, weight=1)
 
-# Text chính (tóm tắt)
-text_output = tk.Text(frame_bottom, wrap="word", font=("Arial", 10))
-text_output.pack(side=tk.LEFT, expand=True, fill="both")
+# ===== Frame main bottom: 2 Text (summary vs old output) =====
+frame_bottom = ttk.Frame(root, padding=10)
+frame_bottom.grid(row=2, column=0, sticky="nsew")
 
-# Text mới bên cạnh
-text_old_output = tk.Text(frame_bottom, wrap="word", font=("Arial", 10), bg="#f5f5f5")
-text_old_output.pack(side=tk.LEFT, expand=True, fill="both")
+root.rowconfigure(2, weight=1)
+root.columnconfigure(0, weight=1)
+frame_bottom.columnconfigure(0, weight=1)
+frame_bottom.columnconfigure(1, weight=1)
+frame_bottom.rowconfigure(0, weight=1)
 
-# Scrollbar áp dụng cho text_output
-scrollbar = tk.Scrollbar(frame_bottom, command=text_output.yview)
-scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-text_output.config(yscrollcommand=scrollbar.set)
+# Text tóm tắt
+frame_summary = ttk.LabelFrame(frame_bottom, text="Tóm tắt", padding=5)
+frame_summary.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+frame_summary.rowconfigure(0, weight=1)
+frame_summary.columnconfigure(0, weight=1)
+
+text_output = tk.Text(frame_summary, wrap="word", font=("Segoe UI", 11))
+text_output.grid(row=0, column=0, sticky="nsew")
+
+scrollbar_out = ttk.Scrollbar(frame_summary, command=text_output.yview)
+scrollbar_out.grid(row=0, column=1, sticky='ns')
+text_output.config(yscrollcommand=scrollbar_out.set)
+
+# Text chuẩn (old output)
+frame_old_output = ttk.LabelFrame(frame_bottom, text="Chuẩn", padding=5)
+frame_old_output.grid(row=0, column=1, sticky="nsew")
+frame_old_output.rowconfigure(0, weight=1)
+frame_old_output.columnconfigure(0, weight=1)
+
+text_old_output = tk.Text(frame_old_output, wrap="word", font=("Segoe UI", 11), bg="#f5f5f5")
+text_old_output.grid(row=0, column=0, sticky="nsew")
+
+scrollbar_old = ttk.Scrollbar(frame_old_output, command=text_old_output.yview)
+scrollbar_old.grid(row=0, column=1, sticky='ns')
+text_old_output.config(yscrollcommand=scrollbar_old.set)
 
 root.mainloop()
