@@ -3,7 +3,8 @@ from tkinter import filedialog
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
-
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 def get_file():
     # Chọn file
     file_path = filedialog.askopenfilename(
@@ -48,7 +49,28 @@ def compare_summaries(summary_document, old_output_sentences):
     return match_count, matched_text
 
 
-def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentences, match_count, precision, recall):
+
+def compare_summaries_cosine(summary_document, old_output_sentences, threshold=0.8):
+    summary_sentences = re.split(r'\.\s*', summary_document)
+    summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
+    old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
+
+    matched_sentences = []
+
+    for sum_sent in summary_sentences:
+        for old_sent in old_output_sentences:
+            vectorizer = TfidfVectorizer().fit([sum_sent, old_sent])
+            vecs = vectorizer.transform([sum_sent, old_sent])
+            sim = cosine_similarity(vecs[0], vecs[1])[0][0]
+            if sim >= threshold:
+                matched_sentences.append(sum_sent)
+                break  # Một câu chỉ cần khớp một câu là đủ
+
+    match_count = len(matched_sentences)
+    matched_text = '.\n'.join(matched_sentences) if match_count > 0 else ''
+    return match_count, matched_text
+
+def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentences, match_count, precision, recall,f1_score):
     """
     Ghi log kết quả tóm tắt vào file Excel (.xlsx).
     """
@@ -61,7 +83,7 @@ def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentenc
     log_file = os.path.join(document_folder, "summary_log.xlsx")
 
     # log_file = "document/summary_log.xlsx"
-    headers = ["Action Time", "File Name", "Extracted", "Expected", "Correct", "Precision", "Recall"]
+    headers = ["Action Time", "File Name", "Extracted", "Expected", "Correct", "Precision", "Recall", "F1-Score"]
 
     if not os.path.exists(log_file):
         wb = Workbook()
@@ -79,7 +101,8 @@ def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentenc
         num_reference_sentences,
         match_count,
         round(precision, 5),
-        round(recall, 5)
+        round(recall, 5),
+        round(f1_score, 5)
     ]
     ws.append(row)
 
@@ -94,5 +117,7 @@ def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentenc
                 pass
         ws.column_dimensions[column].width = max_length + 2
 
-    wb.save(log_file)
-
+    try:
+        wb.save(log_file)
+    except Exception as e:
+        print(f"Lỗi ghi file Excel: {e}")
