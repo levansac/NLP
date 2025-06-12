@@ -5,23 +5,41 @@ from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import re
+import string
+from tkinter import messagebox
+
 def get_file():
-    # Chọn file
+    # Select file
     file_path = filedialog.askopenfilename(
-        title="Chọn file",
+        title="Select file",
         filetypes=[("All files", "*.*")]
     )
 
     if not file_path:
         return None, None
 
-    # Lấy tên file
+    # Get file name
     file_name = os.path.basename(file_path)
 
     return  file_path, file_name
 
-import re
-import string
+
+
+def get_sentences(file_path):
+    try:
+        sentences = []
+        pattern = re.compile(r'<s[^>]*>(.*?)</s>')
+        with open(file_path, 'r', encoding='utf-8') as file:
+            for line in file:
+                matches = pattern.findall(line)
+                for match in matches:
+                    sentence = match.strip()
+                    if sentence:
+                        sentences.append(sentence)
+        return sentences
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while reading the file.:\n{e}")
 
 def preprocess_sentence(sentence):
     # Loại bỏ dấu câu, chuyển về chữ thường, và strip
@@ -29,29 +47,8 @@ def preprocess_sentence(sentence):
     sentence = sentence.translate(str.maketrans('', '', string.punctuation))
     return sentence
 
-def compare_summaries(summary_document, old_output_sentences):
-    # Tách câu bằng regex để chính xác hơn
-    summary_sentences = re.split(r'\.\s*', summary_document)
-    summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
-
-    old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
-    old_output_set = set(old_output_sentences)
-
-    # So sánh câu
-    matched_sentences = [s for s in summary_sentences if s in old_output_set]
-    match_count = len(matched_sentences)
-
-    if match_count > 0:
-        matched_text = '\n'.join(matched_sentences)
-    else:
-        matched_text = ''
-
-    return match_count, matched_text
-
-
-
-def compare_summaries_cosine(summary_document, old_output_sentences, threshold=0.8):
-    summary_sentences = re.split(r'\.\s*', summary_document)
+def compare_summaries_cosine(summary_document, old_output_sentences, threshold=0.7):
+    summary_sentences = summary_document.strip().split('\n')
     summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
     old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
 
