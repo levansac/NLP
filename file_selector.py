@@ -3,8 +3,6 @@ from tkinter import filedialog
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import re
 import string
 from tkinter import messagebox
@@ -47,24 +45,24 @@ def preprocess_sentence(sentence):
     sentence = sentence.translate(str.maketrans('', '', string.punctuation))
     return sentence
 
-def compare_summaries_cosine(summary_document, old_output_sentences, threshold=0.7):
+def compare_summaries(summary_document, old_output_sentences):
+    # Tách câu bằng regex để chính xác hơn
+    # summary_sentences = re.split(r'\.\s*', summary_document)
     summary_sentences = summary_document.strip().split('\n')
     summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
+
     old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
+    old_output_set = set(old_output_sentences)
 
-    matched_sentences = []
-
-    for sum_sent in summary_sentences:
-        for old_sent in old_output_sentences:
-            vectorizer = TfidfVectorizer().fit([sum_sent, old_sent])
-            vecs = vectorizer.transform([sum_sent, old_sent])
-            sim = cosine_similarity(vecs[0], vecs[1])[0][0]
-            if sim >= threshold:
-                matched_sentences.append(sum_sent)
-                break  # Một câu chỉ cần khớp một câu là đủ
-
+    # So sánh câu
+    matched_sentences = [s for s in summary_sentences if s in old_output_set]
     match_count = len(matched_sentences)
-    matched_text = '.\n'.join(matched_sentences) if match_count > 0 else ''
+
+    if match_count > 0:
+        matched_text = '\n'.join(matched_sentences)
+    else:
+        matched_text = ''
+
     return match_count, matched_text
 
 def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentences, match_count, precision, recall,f1_score):

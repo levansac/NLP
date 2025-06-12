@@ -6,7 +6,7 @@ from summarizer_utils import (
     get_graph,
     page_rank
 )
-from file_selector import get_file, compare_summaries_cosine, log_summary_to_excel, get_sentences
+from file_selector import get_file, log_summary_to_excel, get_sentences, compare_summaries
 from metrics import compute_precision, compute_recall, compute_f1
 
 file_name = ""
@@ -76,7 +76,7 @@ def select_file():
     summary_document = '\n'.join([sentences[i] for i in top_sentence_indices])
     old_output_text = '\n'.join(old_output_sentences)
 
-    match_count, matched_text = compare_summaries_cosine(summary_document, old_output_sentences)
+    match_count, matched_text = compare_summaries(summary_document, old_output_sentences)
 
     label_extracted.config(text=f"{_num_sentence}")
     label_expected.config(text=f"{num_old_output_sentences}")
