@@ -6,7 +6,8 @@ from summarizer_utils import (
     get_graph,
     page_rank
 )
-from file_selector import get_file, log_summary_to_excel, get_sentences, compare_summaries
+from common import log_summary_to_excel,get_input_parameters
+from file_selector import get_file, get_sentences, compare_summaries
 from metrics import compute_precision, compute_recall, compute_f1
 
 file_name = ""
@@ -25,22 +26,10 @@ def select_file():
     text_output.delete(1.0, tk.END)
     text_old_output.delete(1.0, tk.END)
 
-    try:
-        threshold = float(entry_threshold.get())
-        if not (0 <= threshold <= 1):
-            raise ValueError
-    except:
-        messagebox.showerror("Error", "The value of threshold number is invalid.")
-        return
+    # Get parameter
+    threshold, _num_sentence_percent, damping = get_input_parameters(entry_threshold, entry_num_sentence, entry_damping)
 
-    try:
-        _num_sentence_percent = int(entry_num_sentence.get().strip())
-        if not (0 <= _num_sentence_percent <= 100):
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Error", "The value of extracted number is invalid.")
-        return
-
+    # Get file
     file_path, file_name = get_file()
     if not file_path:
         return
@@ -71,7 +60,7 @@ def select_file():
     # graph
     graph = get_graph(sentences, cosine_sim_matrix, threshold=threshold)
     # page rank
-    pagerank_scores = page_rank(graph, 0.85)
+    pagerank_scores = page_rank(graph, damping)
 
     ranked_sentences = sorted(((pagerank_scores[i], i) for i in range(count_sentence)), reverse=True)
     top_sentence_indices = [i for _, i in ranked_sentences[:_num_sentence]]
@@ -95,7 +84,7 @@ def select_file():
     label_recall.config(text=f"{recall:.5f}")
     label_f1.config(text=f"{f1_score:.5f}")
 
-    log_summary_to_excel(file_name, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+    log_summary_to_excel(file_name, threshold, damping, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
 
     text_matched_sentences.config(state='normal')
     text_matched_sentences.delete(1.0, tk.END)
@@ -121,21 +110,8 @@ def run_all_files():
         messagebox.showinfo("Notification", "No input XML files or files without extension found in the folder.")
         return
 
-    try:
-        threshold = float(entry_threshold.get())
-        if not (0 <= threshold <= 1):
-            raise ValueError
-    except:
-        messagebox.showerror("Error", "The value of threshold number is invalid.")
-        return
-
-    try:
-        _num_sentence_percent = int(entry_num_sentence.get().strip())
-        if not (0 <= _num_sentence_percent <= 100):
-            raise ValueError
-    except ValueError:
-        messagebox.showerror("Error", "The value of extracted number is invalid.")
-        return
+    # Get parameter
+    threshold, _num_sentence_percent, damping = get_input_parameters(entry_threshold, entry_num_sentence, entry_damping)
 
     count_total_files = len(input_files)
     count_processed = 0
@@ -160,7 +136,7 @@ def run_all_files():
             tfidf_vectors, _ = compute_tfidf_vectors(sentences)
             cosine_sim_matrix = compute_cosine_similarity(tfidf_vectors)
             graph = get_graph(sentences, cosine_sim_matrix, threshold=threshold)
-            pagerank_scores = page_rank(graph, 0.85)
+            pagerank_scores = page_rank(graph, damping)
 
             ranked_sentences = sorted(((pagerank_scores[i], i) for i in range(count_sentence)), reverse=True)
             top_sentence_indices = [i for _, i in ranked_sentences[:_num_sentence]]
@@ -174,7 +150,7 @@ def run_all_files():
             f1_score = compute_f1(precision, recall)
 
             # Log kết quả ra Excel
-            log_summary_to_excel(file_name_current, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+            log_summary_to_excel(file_name_current, threshold, damping,_num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
 
             count_processed += 1
 
@@ -189,6 +165,7 @@ def run_all_files():
 
     # Reset progress bar
     progress_var.set(0)
+    root.update_idletasks()
     messagebox.showinfo("Completed", f"Processed {count_processed}/{count_total_files} files.\nResults saved to Excel.")
 
 
@@ -248,11 +225,16 @@ frame_top.columnconfigure(1, weight=0)
 
 # Progress bar
 progress_var = tk.DoubleVar()
-progress_bar = ttk.Progressbar(frame_top, variable=progress_var, maximum=100)
+progress_bar = ttk.Progressbar(frame_top, variable=progress_var, maximum=100, style='green.Horizontal.TProgressbar')
 progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
 
+style = ttk.Style(root)
+style.theme_use('clam')
 
-# frame_top.columnconfigure(4, weight=1)
+# Progressbar style:
+style.configure("green.Horizontal.TProgressbar",
+                troughcolor='white',
+                background='green')
 
 frame_match = ttk.LabelFrame(root, text="Statistics", padding=10)
 frame_match.grid(row=1, column=0, sticky="ew", padx=15, pady=(5,10))

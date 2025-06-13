@@ -147,7 +147,7 @@ def get_graph(sentences, cosine_sim_matrix, threshold=0.1):
 
     return graph
 
-def page_rank(graph, d=0.85, max_iterations=100, tol=1.0e-5):
+def page_rank(graph, d=0.85, max_iterations=50, tol=1.0e-5):
     """
     Áp dụng thuật toán PageRank để xếp hạng độ quan trọng của các đỉnh trong đồ thị.
 
