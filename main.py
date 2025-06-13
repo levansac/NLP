@@ -83,8 +83,8 @@ def select_file():
     label_precision.config(text=f"{precision:.5f}")
     label_recall.config(text=f"{recall:.5f}")
     label_f1.config(text=f"{f1_score:.5f}")
-
-    log_summary_to_excel(file_name, threshold, damping, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+    percent = int(entry_num_sentence.get().strip())
+    log_summary_to_excel(file_name, threshold, damping, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score,percent)
 
     text_matched_sentences.config(state='normal')
     text_matched_sentences.delete(1.0, tk.END)
@@ -96,10 +96,10 @@ def select_file():
     text_old_output.delete(1.0, tk.END)
     text_old_output.insert(tk.END, old_output_text)
 
-import glob
-import os
-
 def run_all_files():
+    import os
+    import glob
+    percent = int(entry_num_sentence.get().strip())
     folder_path = os.path.dirname(get_file()[0])
 
     # Lấy các file có đuôi .xml hoặc không có đuôi
@@ -110,11 +110,18 @@ def run_all_files():
         messagebox.showinfo("Notification", "No input XML files or files without extension found in the folder.")
         return
 
+    # === Kiểm tra các input ===
     # Get parameter
     threshold, _num_sentence_percent, damping = get_input_parameters(entry_threshold, entry_num_sentence, entry_damping)
 
+    # === Xử lý các file ===
     count_total_files = len(input_files)
     count_processed = 0
+
+    # Biến cộng dồn để tính trung bình
+    total_precision = 0
+    total_recall = 0
+    total_f1 = 0
 
     for idx, file_path in enumerate(input_files):
         try:
@@ -149,8 +156,16 @@ def run_all_files():
             recall = compute_recall(match_count, num_old_output_sentences)
             f1_score = compute_f1(precision, recall)
 
-            # Log kết quả ra Excel
-            log_summary_to_excel(file_name_current, threshold, damping,_num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+            # Cộng dồn
+            total_precision += precision
+            total_recall += recall
+            total_f1 += f1_score
+
+
+            # Log kết quả ra Excel (có thêm threshold + damping)
+            log_summary_to_excel(file_name_current, threshold, damping,
+                                 _num_sentence, num_old_output_sentences, match_count,
+                                 precision, recall, f1_score,percent)
 
             count_processed += 1
 
@@ -163,10 +178,21 @@ def run_all_files():
             print(f"Error processing file {file_path}: {str(e)}")
             continue
 
+    # Sau khi xử lý xong tất cả:
+    if count_processed > 0:
+        avg_precision = total_precision / count_processed
+        avg_recall = total_recall / count_processed
+        avg_f1 = total_f1 / count_processed
+
+        # Log AVERAGE vào Excel
+        log_summary_to_excel("AVERAGE", threshold, damping,
+                             "-", "-", "-",
+                             avg_precision, avg_recall, avg_f1,percent)
+
     # Reset progress bar
     progress_var.set(0)
-    root.update_idletasks()
     messagebox.showinfo("Completed", f"Processed {count_processed}/{count_total_files} files.\nResults saved to Excel.")
+
 
 
 root = tk.Tk()

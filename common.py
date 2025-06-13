@@ -38,27 +38,31 @@ from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
 
-def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, num_reference_sentences, match_count, precision, recall, f1_score):
+def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, num_reference_sentences, match_count, precision, recall, f1_score, percent):
     """
     Ghi log kết quả tóm tắt vào file Excel (.xlsx).
-    Ghi thêm cả threshold và damping.
-    Trả về True nếu ghi thành công, False nếu lỗi.
+    Tên file Excel = YYYY-MM-DD_percent_threshold_damping.xlsx
     """
-
     try:
         # Tạo thư mục "document" nếu chưa có
         base_dir = os.path.dirname(os.path.abspath(__file__))
         document_folder = os.path.join(base_dir, "document")
         os.makedirs(document_folder, exist_ok=True)
 
-        log_file = os.path.join(document_folder, "summary_log.xlsx")
+        # Tạo tên file theo yêu cầu
+        now_str = datetime.now().strftime("%Y-%m-%d")
+        log_file = os.path.join(
+            document_folder,
+            f"{now_str}_{percent}_{round(threshold,5)}_{round(damping,5)}.xlsx"
+        )
+
         headers = [
             "Action Time", "File Name", "Threshold", "Damping",
             "Extracted", "Expected", "Correct",
             "Precision", "Recall", "F1-Score"
         ]
 
-        # Nếu file chưa tồn tại -> tạo mới và ghi header
+        # Nếu file chưa có → tạo mới ghi header
         if not os.path.exists(log_file):
             wb = Workbook()
             ws = wb.active
@@ -67,7 +71,7 @@ def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, n
             wb = load_workbook(log_file)
             ws = wb.active
 
-        # Thêm 1 dòng mới
+        # Ghi 1 dòng dữ liệu
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         row = [
             now,
@@ -101,3 +105,4 @@ def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, n
     except Exception as e:
         print(f"[ERROR] Failed to write Excel log: {e}")
         return False
+
