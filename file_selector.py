@@ -46,15 +46,19 @@ def preprocess_sentence(sentence):
     return sentence
 
 def compare_summaries(summary_document, old_output_sentences):
-    # Tách câu bằng regex để chính xác hơn
-    # summary_sentences = re.split(r'\.\s*', summary_document)
+    # Tách câu
     summary_sentences = summary_document.strip().split('\n')
     summary_sentences = [preprocess_sentence(s) for s in summary_sentences if s.strip()]
 
+    # DISTINCT summary_sentences
+    from collections import OrderedDict
+    summary_sentences = list(OrderedDict.fromkeys(summary_sentences))
+
+    # Xử lý old output
     old_output_sentences = [preprocess_sentence(s) for s in old_output_sentences if s.strip()]
     old_output_set = set(old_output_sentences)
 
-    # So sánh câu
+    # So sánh
     matched_sentences = [s for s in summary_sentences if s in old_output_set]
     match_count = len(matched_sentences)
 
@@ -64,6 +68,7 @@ def compare_summaries(summary_document, old_output_sentences):
         matched_text = ''
 
     return match_count, matched_text
+
 
 def log_summary_to_excel(file_name, num_summary_sentences, num_reference_sentences, match_count, precision, recall,f1_score):
     """

@@ -30,10 +30,13 @@ def select_file():
         if not (0 <= threshold <= 1):
             raise ValueError
     except:
-        threshold = 0.1
+        messagebox.showerror("Error", "The value of threshold number is invalid.")
+        return
 
     try:
-        _num_sentence = int(entry_num_sentence.get().strip())
+        _num_sentence_percent = int(entry_num_sentence.get().strip())
+        if not (0 <= _num_sentence_percent <= 100):
+            raise ValueError
     except ValueError:
         messagebox.showerror("Error", "The value of extracted number is invalid.")
         return
@@ -47,7 +50,8 @@ def select_file():
     if count_sentence == 0:
         messagebox.showinfo("Notification", "This file has no sentences to summarize.")
         return
-
+    _num_sentence = 0
+    _num_sentence = int(count_sentence*_num_sentence_percent/100)
     if _num_sentence > count_sentence:
         messagebox.showwarning("Warning",
             f"Number of summarizing sentences ({_num_sentence}) is greater than number of sentences in document ({count_sentence}). Automatically reduces to {count_sentence}.")
@@ -103,6 +107,81 @@ def select_file():
     text_old_output.delete(1.0, tk.END)
     text_old_output.insert(tk.END, old_output_text)
 
+import glob
+import os
+
+def run_all_files():
+    folder_path = os.path.dirname(get_file()[0])
+    input_files = glob.glob(os.path.join(folder_path, "*"))
+
+    if not input_files:
+        messagebox.showinfo("Notification", "No input XML files found in the folder.")
+        return
+
+    try:
+        threshold = float(entry_threshold.get())
+        if not (0 <= threshold <= 1):
+            raise ValueError
+    except:
+        messagebox.showerror("Error", "The value of threshold number is invalid.")
+        return
+
+    try:
+        _num_sentence_percent = int(entry_num_sentence.get().strip())
+        if not (0 <= _num_sentence_percent <= 100):
+            raise ValueError
+    except ValueError:
+        messagebox.showerror("Error", "The value of extracted number is invalid.")
+        return
+
+    count_total_files = len(input_files)
+    count_processed = 0
+
+    for file_path in input_files:
+        try:
+            file_name = os.path.basename(file_path)
+            sentences = get_sentences(file_path)
+            count_sentence = len(sentences)
+            if count_sentence == 0:
+                continue
+
+            _num_sentence = int(count_sentence * _num_sentence_percent / 100)
+            _num_sentence = min(_num_sentence, count_sentence)
+
+            old_output_file_path = file_path.replace("input", "output")
+            old_output_sentences = get_sentences(old_output_file_path)
+            num_old_output_sentences = len(old_output_sentences)
+            if num_old_output_sentences == 0:
+                continue
+
+            tfidf_vectors, _ = compute_tfidf_vectors(sentences)
+            cosine_sim_matrix = compute_cosine_similarity(tfidf_vectors)
+            graph = get_graph(sentences, cosine_sim_matrix, threshold=threshold)
+            pagerank_scores = page_rank(graph, 0.85)
+
+            ranked_sentences = sorted(((pagerank_scores[i], i) for i in range(count_sentence)), reverse=True)
+            top_sentence_indices = [i for _, i in ranked_sentences[:_num_sentence]]
+            top_sentence_indices.sort()
+
+            summary_document = '\n'.join([sentences[i] for i in top_sentence_indices])
+            match_count, matched_text = compare_summaries(summary_document, old_output_sentences)
+
+            precision = compute_precision(match_count, _num_sentence)
+            recall = compute_recall(match_count, num_old_output_sentences)
+            f1_score = compute_f1(precision, recall)
+
+            # Log kết quả ra Excel
+            log_summary_to_excel(file_name, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+
+            count_processed += 1
+
+        except Exception as e:
+            print(f"Error processing file {file_path}: {str(e)}")
+            continue
+
+    messagebox.showinfo("Completed", f"Processed {count_processed}/{count_total_files} files.\nResults saved to Excel.")
+
+
 root = tk.Tk()
 root.title("XML Text Summarizer")
 root.state('zoomed')
@@ -113,11 +192,11 @@ style.theme_use('clam')
 frame_top = ttk.Frame(root, padding=15)
 frame_top.grid(row=0, column=0, sticky="ew")
 
-label_num = ttk.Label(frame_top, text="Extracted No:", font=("Segoe UI", 11))
+label_num = ttk.Label(frame_top, text="Extracted (%):", font=("Segoe UI", 11))
 label_num.grid(row=0, column=0, sticky="w")
 
 entry_num_sentence = ttk.Entry(frame_top, width=5, font=("Segoe UI", 11))
-entry_num_sentence.insert(0, "20")
+entry_num_sentence.insert(0, "10")
 entry_num_sentence.grid(row=0, column=1, padx=(5, 25))
 
 label_threshold = ttk.Label(frame_top, text="Threshold index (0-1):", font=("Segoe UI", 11))
@@ -137,6 +216,10 @@ style.map("Custom.TButton",
 btn_select = ttk.Button(frame_top, text="Select input file", command=select_file, style="Custom.TButton")
 btn_select.grid(row=0, column=4)
 
+btn_run_all = ttk.Button(frame_top, text="Run all file", command=run_all_files, style="Custom.TButton")
+btn_run_all.grid(row=0, column=5, padx=(5, 10))
+
+
 frame_top.columnconfigure(4, weight=1)
 
 frame_match = ttk.LabelFrame(root, text="Statistics", padding=10)
@@ -145,8 +228,8 @@ frame_match.grid(row=1, column=0, sticky="ew", padx=15, pady=(5,10))
 label_filename = ttk.Label(frame_match, text="File Name:", font=("Segoe UI", 10, "bold"))
 label_filename.grid(row=0, column=0, sticky="w", padx=(0, 15))
 
-label_extracted = create_info_pair(frame_match, "Expected:", "0", 1)
-label_expected = create_info_pair(frame_match, "Extracted:", "0", 2)
+label_extracted = create_info_pair(frame_match, "Extracted:", "0", 1)
+label_expected = create_info_pair(frame_match, "Expected:", "0", 2)
 label_match_count = create_info_pair(frame_match, "Correct:", "0", 3)
 label_precision = create_info_pair(frame_match, "Precision:", "0.00000", 4)
 label_recall = create_info_pair(frame_match, "Recall:", "0.00000", 5)
