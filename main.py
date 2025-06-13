@@ -112,10 +112,13 @@ import os
 
 def run_all_files():
     folder_path = os.path.dirname(get_file()[0])
-    input_files = glob.glob(os.path.join(folder_path, "*"))
+
+    # Lấy các file có đuôi .xml hoặc không có đuôi
+    input_files = [f for f in glob.glob(os.path.join(folder_path, "*"))
+                   if os.path.isfile(f) and (f.lower().endswith(".xml") or '.' not in os.path.basename(f))]
 
     if not input_files:
-        messagebox.showinfo("Notification", "No input XML files found in the folder.")
+        messagebox.showinfo("Notification", "No input XML files or files without extension found in the folder.")
         return
 
     try:
@@ -137,9 +140,9 @@ def run_all_files():
     count_total_files = len(input_files)
     count_processed = 0
 
-    for file_path in input_files:
+    for idx, file_path in enumerate(input_files):
         try:
-            file_name = os.path.basename(file_path)
+            file_name_current = os.path.basename(file_path)
             sentences = get_sentences(file_path)
             count_sentence = len(sentences)
             if count_sentence == 0:
@@ -171,14 +174,21 @@ def run_all_files():
             f1_score = compute_f1(precision, recall)
 
             # Log kết quả ra Excel
-            log_summary_to_excel(file_name, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
+            log_summary_to_excel(file_name_current, _num_sentence, num_old_output_sentences, match_count, precision, recall, f1_score)
 
             count_processed += 1
+
+            # Update progress bar
+            progress_percent = ((idx + 1) / count_total_files) * 100
+            progress_var.set(progress_percent)
+            root.update_idletasks()
 
         except Exception as e:
             print(f"Error processing file {file_path}: {str(e)}")
             continue
 
+    # Reset progress bar
+    progress_var.set(0)
     messagebox.showinfo("Completed", f"Processed {count_processed}/{count_total_files} files.\nResults saved to Excel.")
 
 
@@ -189,38 +199,60 @@ root.state('zoomed')
 style = ttk.Style(root)
 style.theme_use('clam')
 
+# === Frame top ===
 frame_top = ttk.Frame(root, padding=15)
 frame_top.grid(row=0, column=0, sticky="ew")
 
-label_num = ttk.Label(frame_top, text="Extracted (%):", font=("Segoe UI", 11))
+# Frame con cho các label + entry (căn trái)
+frame_entries = ttk.Frame(frame_top)
+frame_entries.grid(row=0, column=0, sticky="w")
+
+label_num = ttk.Label(frame_entries, text="Extracted (%):", font=("Segoe UI", 11))
 label_num.grid(row=0, column=0, sticky="w")
 
-entry_num_sentence = ttk.Entry(frame_top, width=5, font=("Segoe UI", 11))
+entry_num_sentence = ttk.Entry(frame_entries, width=5, font=("Segoe UI", 11))
 entry_num_sentence.insert(0, "10")
-entry_num_sentence.grid(row=0, column=1, padx=(5, 25))
+entry_num_sentence.grid(row=0, column=1, padx=(5, 15))
 
-label_threshold = ttk.Label(frame_top, text="Threshold index (0-1):", font=("Segoe UI", 11))
+label_threshold = ttk.Label(frame_entries, text="Threshold index (0-1):", font=("Segoe UI", 11))
 label_threshold.grid(row=0, column=2, sticky="w")
 
-entry_threshold = ttk.Entry(frame_top, width=6, font=("Segoe UI", 11))
+entry_threshold = ttk.Entry(frame_entries, width=6, font=("Segoe UI", 11))
 entry_threshold.insert(0, "0.1")
-entry_threshold.grid(row=0, column=3, padx=(5, 25))
+entry_threshold.grid(row=0, column=3, padx=(5, 15))
 
-# btn_select = ttk.Button(frame_top, text="Select input file", command=select_file)
-# btn_select.grid(row=0, column=4)
+label_damping = ttk.Label(frame_entries, text="Damping factor d (0-1):", font=("Segoe UI", 11))
+label_damping.grid(row=0, column=4, sticky="w")
+
+entry_damping = ttk.Entry(frame_entries, width=6, font=("Segoe UI", 11))
+entry_damping.insert(0, "0.85")
+entry_damping.grid(row=0, column=5, padx=(5, 15))
+
+# Frame con cho buttons (căn phải)
+frame_buttons = ttk.Frame(frame_top)
+frame_buttons.grid(row=0, column=1, sticky="e")
 
 style.configure("Custom.TButton", foreground="black", background="#add8e6")
 style.map("Custom.TButton",
           background=[("active", "#87cefa"), ("!active", "#add8e6")])
 
-btn_select = ttk.Button(frame_top, text="Select input file", command=select_file, style="Custom.TButton")
-btn_select.grid(row=0, column=4)
+btn_select = ttk.Button(frame_buttons, text="Select input file", command=select_file, style="Custom.TButton")
+btn_select.grid(row=0, column=0, padx=(0, 5))
 
-btn_run_all = ttk.Button(frame_top, text="Run all file", command=run_all_files, style="Custom.TButton")
-btn_run_all.grid(row=0, column=5, padx=(5, 10))
+btn_run_all = ttk.Button(frame_buttons, text="Run all file", command=run_all_files, style="Custom.TButton")
+btn_run_all.grid(row=0, column=1, padx=(0, 5))
+
+# Cho frame_entries dãn ra, frame_buttons cố định
+frame_top.columnconfigure(0, weight=1)
+frame_top.columnconfigure(1, weight=0)
+
+# Progress bar
+progress_var = tk.DoubleVar()
+progress_bar = ttk.Progressbar(frame_top, variable=progress_var, maximum=100)
+progress_bar.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(10, 0))
 
 
-frame_top.columnconfigure(4, weight=1)
+# frame_top.columnconfigure(4, weight=1)
 
 frame_match = ttk.LabelFrame(root, text="Statistics", padding=10)
 frame_match.grid(row=1, column=0, sticky="ew", padx=15, pady=(5,10))
