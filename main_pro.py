@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from summarizer_utils import (
+from summarizer_utils_pro import (
     compute_tfidf_vectors,
     compute_cosine_similarity,
     get_graph,
@@ -199,7 +199,7 @@ def run_all_files():
 
 
 root = tk.Tk()
-root.title("DOCUMENTS SUMMARIZER")
+root.title("DOCUMENTS SUMMARIZER PRO")
 root.state('zoomed')
 
 style = ttk.Style(root)

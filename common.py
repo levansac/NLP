@@ -2,7 +2,6 @@ import os
 from datetime import datetime
 from openpyxl import Workbook, load_workbook
 from openpyxl.utils import get_column_letter
-
 from tkinter import messagebox
 
 def get_input_parameters(entry_threshold, entry_num_sentence, entry_damping):
@@ -32,11 +31,6 @@ def get_input_parameters(entry_threshold, entry_num_sentence, entry_damping):
 
     # Return all values as a tuple
     return threshold, _num_sentence_percent, damping
-
-import os
-from datetime import datetime
-from openpyxl import Workbook, load_workbook
-from openpyxl.utils import get_column_letter
 
 def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, num_reference_sentences, match_count, precision, recall, f1_score, percent):
     """
@@ -106,3 +100,23 @@ def log_summary_to_excel(file_name, threshold, damping, num_summary_sentences, n
         print(f"[ERROR] Failed to write Excel log: {e}")
         return False
 
+def save_summary_to_txt(file_name: str, summary_document: str):
+    try:
+        # Đường dẫn thư mục đích
+        output_dir = r"C:\HUTECH\PROJECT\NLP\document"
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Tên file có thêm timestamp để tránh trùng
+        base_name = os.path.splitext(os.path.basename(file_name))[0]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_txt_path = os.path.join(output_dir, f"{base_name}_summary_{timestamp}.txt")
+
+        with open(output_txt_path, "w", encoding="utf-8") as f:
+            f.write(summary_document)
+
+        print(f"[INFO] Summary written to: {output_txt_path}")
+        return output_txt_path
+
+    except Exception as e:
+        print(f"[ERROR] Failed to save summary to txt: {e}")
+        return None
